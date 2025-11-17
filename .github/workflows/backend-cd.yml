@@ -1,0 +1,90 @@
+name: Backend CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-cd.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    env:
+      RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run tests
+        env:
+          NODE_ENV: test
+          MONGODB_URI: mongodb://localhost:27017/test-db
+          JWT_SECRET: test-secret-key
+          PORT: 5000
+        run: npm test -- --runInBand
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage
+          if-no-files-found: warn
+
+      - name: Deploy to Render
+        if: ${{ env.RENDER_SERVICE_ID != '' && env.RENDER_API_KEY != '' }}
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ env.RENDER_SERVICE_ID }}
+          api-key: ${{ env.RENDER_API_KEY }}
+
+      - name: Deploy to Railway
+        if: ${{ env.RAILWAY_TOKEN != '' }}
+        uses: bervProject/railway-deploy@v0.2.5
+        with:
+          railway_token: ${{ env.RAILWAY_TOKEN }}
+          service: backend
+          detach: false
+
+      - name: Deployment skipped (missing secrets)
+        if: ${{ env.RENDER_SERVICE_ID == '' && env.RENDER_API_KEY == '' && env.RAILWAY_TOKEN == '' }}
+        run: |
+          echo "No deployment provider secrets found. Configure Render or Railway secrets to enable automatic deployment."
+
+      - name: Deployment summary
+        run: echo "Backend deployment workflow completed"
+

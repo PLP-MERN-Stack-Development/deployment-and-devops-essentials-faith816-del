@@ -1,0 +1,52 @@
+.items {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.item-form {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.items-list {
+  margin-top: 2rem;
+}
+
+.items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.item-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.item-card h3 {
+  margin-bottom: 0.5rem;
+  color: #2c3e50;
+}
+
+.item-card p {
+  margin: 0.5rem 0;
+  color: #666;
+}
+
+.item-card .price {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #28a745;
+}
+
+.item-card button {
+  margin-top: 1rem;
+  width: 100%;
+}
+

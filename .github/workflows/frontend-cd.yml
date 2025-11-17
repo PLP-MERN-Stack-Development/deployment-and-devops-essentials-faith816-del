@@ -1,0 +1,123 @@
+name: Frontend CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-cd.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: production
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          if-no-files-found: error
+
+      - name: Install Netlify CLI
+        if: ${{ secrets.NETLIFY_AUTH_TOKEN != '' }}
+        run: npm install -g netlify-cli
+
+      - name: Deploy to Netlify (production)
+        if: ${{ secrets.NETLIFY_AUTH_TOKEN != '' && secrets.NETLIFY_SITE_ID != '' }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          netlify deploy \
+            --dir=dist \
+            --site="${{ secrets.NETLIFY_SITE_ID }}" \
+            --prod
+
+      - name: Deployment skipped
+        if: ${{ secrets.NETLIFY_AUTH_TOKEN == '' || secrets.NETLIFY_SITE_ID == '' }}
+        run: |
+          echo "Netlify secrets (NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID) are not configured."
+          echo "Build artifact uploaded for manual deployment."
+name: Frontend CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-cd.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    defaults:
+      run:
+        working-directory: ./frontend
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build application
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+      
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        if: env.VERCEL_TOKEN != ''
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+      
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v2.0
+        if: env.NETLIFY_AUTH_TOKEN != ''
+        with:
+          publish-dir: './frontend/dist'
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy from GitHub Actions"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+      
+      - name: Deployment status
+        run: echo "Frontend deployment completed"
+
